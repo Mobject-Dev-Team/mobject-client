@@ -2,6 +2,8 @@
 
 mobject-client is a JavaScript client designed for easy interaction with the mobject-server. It facilitates communication with automation software, specifically designed to work seamlessly with Beckhoff's TwinCAT HMI and NodeJs environments. This package includes two main clients: `AdsRpcClient` for general-purpose use and `TcHmiRpcClient` for integration with TwinCAT HMI projects.
 
+ADS already supports most use cases. This server and client combination was created to provide a true server and client implementation which can be expanded upon. Currently the client and server supports synchronous and asynchronous requests. The amount of data sent in a call is only limited by the ADS router memory. Requests and responses are automatically chunked.
+
 ## Installation
 
 ```bash
@@ -53,6 +55,20 @@ For projects using TwinCAT HMI, where modules cannot be directly used, a bundled
 
 ```bash
 npm run build-tchmi
+```
+
+## Using in TwinCAT HMI
+
+You will need to map the HandleRequest method in the server configuration of TwinCAT HMI. Once done, you can create a client and send rpc calls using client.rpcCall().
+
+```javascript
+const client = new MobjectRpcClient("%s%PLC1.MAIN.server.HandleRequest%/s%");
+
+// Make a remote procedure call
+const parameters = {
+  /* key-value pairs of the parameters */
+};
+const methodReturnValue = await client.rpcCall("MethodName", parameters);
 ```
 
 This creates TchmiMobjectClient.bundle.js in the dist folder, which can be included in your TcHmi project.

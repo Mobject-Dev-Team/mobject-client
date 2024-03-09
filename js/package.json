@@ -1,13 +1,17 @@
 {
   "name": "mobject-client",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Javascript client for the mobject-server.",
   "main": "./src/index.js",
+  "author": "Mobject Dev Team <npm@mobject.org>",
   "scripts": {
     "test": "jest",
     "build-tchmi": "webpack --mode production"
   },
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mobject-Dev-Team/mobject-client.git"
+  },
   "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.24.0",
@@ -19,5 +23,9 @@
   },
   "dependencies": {
     "ads-client": "^1.14.3"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/Mobject-Dev-Team/mobject-client/issues"
+  },
+  "homepage": "http://mobject.org"
 }

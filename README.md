@@ -1,6 +1,6 @@
 # mobject-client
 
-mobject-client is a multi-language client library designed for seamless interaction with the mobject-server, facilitating communication with automation software. This library is particularly tailored for integration with Beckhoff's TwinCAT HMI and NodeJs environments, offering a simplified approach to automating tasks and managing devices.
+mobject-client is a multi-language client library designed for seamless interaction with the [mobject-server](https://github.com/Mobject-Dev-Team/mobject-server), facilitating communication with automation software. This library is particularly tailored for integration with Beckhoff's TwinCAT HMI and NodeJs environments, offering a simplified approach to automating tasks and managing devices.
 
 ## Available Implementations
 

@@ -39,9 +39,9 @@ const methodReturnValue = await client.rpcCall("MethodName", parameters);
 
 ## Constructor Parameters
 
-- amsNetId: The AMS Net ID of the target machine.
-- adsPort: The ADS port.
-  symbolName: The symbol name for the API endpoint, defaults to "MAIN.api".
+- amsNetId: The AMS Net ID of the target machine, defaults to "127.0.0.1.1.1".
+- adsPort: The ADS port, defaults to 851.
+  symbolName: The symbol name for the API endpoint, defaults to "MAIN.server".
 - methodName: The method name to call, defaults to "HandleRequest".
 - config: Additional configuration options.
 
@@ -49,20 +49,22 @@ const methodReturnValue = await client.rpcCall("MethodName", parameters);
 
 The parameters object for rpcCall consists of key-value pairs corresponding to the method's parameters. These can be any JavaScript primitive, array or object, which will be automatically serialized for the call.
 
-# Building for TcHmi
+# Building for TcHmi (Prior to NuGet package release)
 
 For projects using TwinCAT HMI, where modules cannot be directly used, a bundled distribution file is generated through Webpack:
 
 ```bash
-npm run build-tchmi
+npm run build-tchmi-javascript-file
 ```
+
+In time this will be replaced with an official NuGet package for TwinCAT HMI, but until then you will manually build.
 
 ## Using in TwinCAT HMI
 
 You will need to map the HandleRequest method in the server configuration of TwinCAT HMI. Once done, you can create a client and send rpc calls using client.rpcCall().
 
 ```javascript
-const client = new MobjectRpcClient("%s%PLC1.MAIN.server.HandleRequest%/s%");
+const client = new TcHmiRpcClient("%s%PLC1.MAIN.server.HandleRequest%/s%");
 
 // Make a remote procedure call
 const parameters = {
@@ -71,4 +73,4 @@ const parameters = {
 const methodReturnValue = await client.rpcCall("MethodName", parameters);
 ```
 
-This creates TchmiMobjectClient.bundle.js in the dist folder, which can be included in your TcHmi project.
+This creates TcHmiRpcClient.bundle.js in the dist folder, which can be included in your TcHmi project.

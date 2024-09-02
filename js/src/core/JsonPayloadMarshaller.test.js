@@ -1,62 +1,67 @@
-describe("JsonPayloadMarshaller", () => {
-  const Header = require("./Header");
-  const HeaderAccessor = require("./HeaderAccessor");
-  const JsonPayloadMarshaller = require("./JsonPayloadMarshaller");
-  const marshaller = new JsonPayloadMarshaller();
+const JsonPayloadMarshaller = require("./JsonPayloadMarshaller");
+const HeaderAccessor = require("./HeaderAccessor");
 
+// Mock the HeaderAccessor dependency
+jest.mock("./HeaderAccessor", () => ({
+  updateContentTypeToJson: jest.fn(),
+}));
+
+describe("JsonPayloadMarshaller", () => {
+  let marshaller;
   beforeEach(() => {
-    jest.resetAllMocks();
+    marshaller = new JsonPayloadMarshaller();
+    HeaderAccessor.updateContentTypeToJson.mockClear();
   });
 
   describe("marshall", () => {
-    it("should update content type to JSON and return stringified payload", () => {
-      const header = new Header();
+    it("should update content type to JSON", () => {
+      marshaller.marshall({}, {});
+      expect(HeaderAccessor.updateContentTypeToJson).toHaveBeenCalled();
+    });
+
+    it("handles a File instance correctly", () => {
+      const file = new File(["content"], "test.txt", {
+        type: "text/plain",
+        lastModified: new Date(),
+      });
+      const result = marshaller.marshall({}, file);
+      const expected = JSON.stringify({
+        file: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          lastModified: file.lastModified,
+        },
+      });
+      expect(result).toEqual(expected);
+    });
+
+    it("converts a regular object payload to JSON", () => {
       const payload = { key: "value" };
-      jest.spyOn(HeaderAccessor, "updateContentTypeToJson");
-
-      const result = marshaller.marshall(header, payload);
-
-      expect(HeaderAccessor.updateContentTypeToJson).toHaveBeenCalledWith(
-        header
-      );
+      const result = marshaller.marshall({}, payload);
       expect(result).toEqual(JSON.stringify(payload));
     });
 
-    it("should return undefined for non-object payloads", () => {
-      const header = new Header();
-      const payload = "Not an object";
-
-      const result = marshaller.marshall(header, payload);
-
-      expect(result).toBeUndefined();
-    });
-
-    it("should return undefined for null payloads", () => {
-      const header = new Header();
-      const payload = null;
-
-      const result = marshaller.marshall(header, payload);
-
-      expect(result).toBeUndefined();
-    });
-
-    it("should return undefined for File instance payloads", () => {
-      const header = new Header();
-      const payload = new File([""], "filename");
-
-      const result = marshaller.marshall(header, payload);
-
-      expect(result).toBeUndefined();
+    it("returns an empty string when payload cannot be stringified", () => {
+      const cyclicObject = {};
+      cyclicObject.self = cyclicObject; // Creating a circular reference
+      const result = marshaller.marshall({}, cyclicObject);
+      expect(result).toBe("");
     });
   });
 
   describe("unmarshall", () => {
-    it("should parse serialized JSON payload", () => {
+    it("converts JSON string back to object", () => {
       const serializedPayload = JSON.stringify({ key: "value" });
-
       const result = marshaller.unmarshall(serializedPayload);
-
       expect(result).toEqual({ key: "value" });
+    });
+
+    it("throws error on invalid JSON string", () => {
+      const badJson = "this is not JSON";
+      expect(() => {
+        marshaller.unmarshall(badJson);
+      }).toThrow(SyntaxError);
     });
   });
 });

@@ -6,7 +6,7 @@
   "author": "Mobject Dev Team <npm@mobject.org>",
   "scripts": {
     "test": "jest",
-    "build-tchmi": "webpack --mode production"
+    "build-tchmi-javascript-file": "webpack --mode production"
   },
   "repository": {
     "type": "git",

@@ -2,23 +2,29 @@ const RpcClientBase = require("../core/RpcClientBase");
 const AdsClientConnectionStrategy = require("../strategies/AdsClientConnectionStrategy");
 const { Client } = require("ads-client");
 
-class RpcClient extends RpcClientBase {
+class AdsRpcClient extends RpcClientBase {
   #client;
+  isConnected = false;
 
   constructor(
-    amsNetId,
-    adsPort,
-    symbolName = "MAIN.api",
+    amsNetId = "127.0.0.1.1.1",
+    adsPort = 851,
+    symbolName = "MAIN.server",
     methodName = "HandleRequest",
     config = {}
   ) {
-    if (!amsNetId || !adsPort) {
-      throw new Error("amsNetId and adsPort are required parameters.");
-    }
-
     const client = new Client({
       targetAmsNetId: amsNetId,
       targetAdsPort: adsPort,
+      autoReconnect: false,
+    });
+
+    client.on("disconnect", () => {
+      this.isConnected = false;
+    });
+
+    client.on("connect", () => {
+      this.isConnected = true;
     });
 
     const serverConnectionStrategy = new AdsClientConnectionStrategy(
@@ -33,6 +39,10 @@ class RpcClient extends RpcClientBase {
   }
 
   async connect() {
+    if (this.isConnected) {
+      return;
+    }
+
     try {
       await this.#client.connect();
     } catch (error) {
@@ -41,7 +51,21 @@ class RpcClient extends RpcClientBase {
     }
   }
 
+  async rpcCall(methodName, params = {}, timeout = 60000) {
+    if (!this.isConnected) {
+      throw new Error(
+        "No active connection. Please connect before calling RPC methods."
+      );
+    }
+
+    return await super.rpcCall(methodName, params, timeout);
+  }
+
   async disconnect() {
+    if (!this.isConnected) {
+      return;
+    }
+
     try {
       await this.#client.disconnect();
     } catch (error) {
@@ -51,4 +75,4 @@ class RpcClient extends RpcClientBase {
   }
 }
 
-module.exports = RpcClient;
+module.exports = AdsRpcClient;

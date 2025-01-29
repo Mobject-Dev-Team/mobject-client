@@ -99,8 +99,10 @@ class AsyncClient {
   }
 
   async #enqueueRequest(id, header, serializedPayload) {
+    console.time(`Chunking Request ${id}`);
     const chunkedPayload = this.#chunkSerializedPayload(serializedPayload);
     const totalChunks = chunkedPayload.length;
+    console.timeEnd(`Chunking Request ${id}`);
 
     for (let index = 0; index < totalChunks; ) {
       if (this.#idHasExpired(id)) {
@@ -130,6 +132,14 @@ class AsyncClient {
   }
 
   #chunkSerializedPayload(serializedPayload) {
+    const chunks = [];
+    for (let i = 0; i < serializedPayload.length; i += this.#chunkSize) {
+      chunks.push(serializedPayload.slice(i, i + this.#chunkSize));
+    }
+    return chunks;
+  }
+
+  #chunkSerializedPayloadOld(serializedPayload) {
     return serializedPayload.length > this.#chunkSize
       ? serializedPayload.match(new RegExp(`.{1,${this.#chunkSize}}`, "g"))
       : [serializedPayload];

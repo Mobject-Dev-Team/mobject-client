@@ -54,15 +54,9 @@ class AsyncClient {
     return marshaller.unmarshall(serializedResponse);
   }
 
-  #createActiveRequestEntryold() {
-    const id = this.#idGenerator.generate();
-    this.#activeRequests.set(id, { resolve: null, reject: null });
-    return id;
-  }
-
   #createActiveRequestEntry() {
     const id = this.#idGenerator.generate();
-    this.#activeRequests.set(id, { resolve: null, reject: null, chunks: [] }); // Initialize with array
+    this.#activeRequests.set(id, { resolve: null, reject: null, chunks: [] });
     return id;
   }
 
@@ -105,10 +99,8 @@ class AsyncClient {
   }
 
   async #enqueueRequest(id, header, serializedPayload) {
-    console.time(`Chunking Request ${id}`);
     const chunkedPayload = this.#chunkSerializedPayload(serializedPayload);
     const totalChunks = chunkedPayload.length;
-    console.timeEnd(`Chunking Request ${id}`);
 
     for (let index = 0; index < totalChunks; ) {
       if (this.#idHasExpired(id)) {
@@ -185,11 +177,10 @@ class AsyncClient {
 
   async #delayExecution(delayTimeInMs) {
     return new Promise((resolve) => {
-      if (typeof delayTimeInMs === "number") {
-        this.#log(`Delaying for ${delayTimeInMs}ms based on server response`);
-        setTimeout(() => {
-          resolve();
-        }, delayTimeInMs);
+      const delay = Math.max(0, Number(delayTimeInMs) || 0);
+      if (delay > 0) {
+        this.#log(`Delaying for ${delay}ms based on server response`);
+        setTimeout(resolve, delay);
       } else {
         resolve();
       }
@@ -209,20 +200,13 @@ class AsyncClient {
       const retryDelay = HeaderAccessor.readRetryDelay(response.header);
       await this.#prepareAndEnqueueFollowup(id, header, responseId, retryDelay);
     } else {
-      // activeRequest.resolve(activeRequest.payload);
       activeRequest.resolve(activeRequest.chunks.join(""));
     }
   }
 
-  #updateActiveRequestPayloadold(activeRequest, response) {
-    const receivedPayload = response.payload;
-    activeRequest.payload = activeRequest.payload ?? "";
-    activeRequest.payload += receivedPayload;
-  }
-
   #updateActiveRequestPayload(activeRequest, response) {
     const receivedPayload = response.payload;
-    activeRequest.chunks.push(receivedPayload); // Push to array
+    activeRequest.chunks.push(receivedPayload);
   }
 
   async #handlePendingResponse(id, header, response) {
@@ -246,7 +230,9 @@ class AsyncClient {
   }
 
   async #enqueueFollowup(id, header) {
-    let shouldRetry = false;
+    let retryCount = 0;
+    const maxRetries = 5;
+    let shouldRetry;
     do {
       try {
         if (this.#idHasExpired(id)) return;
@@ -264,8 +250,15 @@ class AsyncClient {
           id,
           header
         );
+
+        retryCount++;
+        if (shouldRetry && retryCount > maxRetries) {
+          this.#handleFailure(id, "Maximum retry attempts exceeded");
+          shouldRetry = false;
+        }
       } catch (error) {
         this.#handleFailure(id, `An error occurred: ${error.message}`);
+        shouldRetry = false;
       }
     } while (shouldRetry);
   }

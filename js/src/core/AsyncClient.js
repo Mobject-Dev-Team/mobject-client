@@ -54,9 +54,15 @@ class AsyncClient {
     return marshaller.unmarshall(serializedResponse);
   }
 
-  #createActiveRequestEntry() {
+  #createActiveRequestEntryold() {
     const id = this.#idGenerator.generate();
     this.#activeRequests.set(id, { resolve: null, reject: null });
+    return id;
+  }
+
+  #createActiveRequestEntry() {
+    const id = this.#idGenerator.generate();
+    this.#activeRequests.set(id, { resolve: null, reject: null, chunks: [] }); // Initialize with array
     return id;
   }
 
@@ -139,12 +145,6 @@ class AsyncClient {
     return chunks;
   }
 
-  #chunkSerializedPayloadOld(serializedPayload) {
-    return serializedPayload.length > this.#chunkSize
-      ? serializedPayload.match(new RegExp(`.{1,${this.#chunkSize}}`, "g"))
-      : [serializedPayload];
-  }
-
   #idHasExpired(id) {
     return !this.#activeRequests.has(id);
   }
@@ -209,14 +209,20 @@ class AsyncClient {
       const retryDelay = HeaderAccessor.readRetryDelay(response.header);
       await this.#prepareAndEnqueueFollowup(id, header, responseId, retryDelay);
     } else {
-      activeRequest.resolve(activeRequest.payload);
+      // activeRequest.resolve(activeRequest.payload);
+      activeRequest.resolve(activeRequest.chunks.join(""));
     }
+  }
+
+  #updateActiveRequestPayloadold(activeRequest, response) {
+    const receivedPayload = response.payload;
+    activeRequest.payload = activeRequest.payload ?? "";
+    activeRequest.payload += receivedPayload;
   }
 
   #updateActiveRequestPayload(activeRequest, response) {
     const receivedPayload = response.payload;
-    activeRequest.payload = activeRequest.payload ?? "";
-    activeRequest.payload += receivedPayload;
+    activeRequest.chunks.push(receivedPayload); // Push to array
   }
 
   async #handlePendingResponse(id, header, response) {

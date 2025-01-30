@@ -1,9 +1,9 @@
 {
   "name": "mobject-client",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Javascript client for the mobject-server.",
   "main": "./src/index.js",
-  "author": "Mobject Dev Team <npm@mobject.org>",
+  "author": "benhar-dev",
   "scripts": {
     "test": "jest",
     "build-tchmi-javascript-file": "webpack --mode production"

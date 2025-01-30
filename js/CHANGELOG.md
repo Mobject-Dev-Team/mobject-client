@@ -1,6 +1,12 @@
 # Changelog
 
-## [v2.0.0] - [03-09-2024]
+## v2.1.0 - 30-01-2025
+
+- Optimized chunking
+- Optimized payload collection
+- Protected retries
+
+## v2.0.0 - 03-09-2024
 
 ### Changed
 
@@ -17,6 +23,6 @@
 
 - Json handling
 
-## [v1.0.0] - [9-3-2024]
+## v1.0.0 - 9-3-2024
 
 Initial release

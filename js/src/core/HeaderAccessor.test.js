@@ -33,10 +33,16 @@ describe("HeaderAccessor class", () => {
     );
   });
 
-  test("readMessage should return the correct message from the header", () => {
+  test("readErrorMessage should return the correct message from the header", () => {
     const testMessage = "This is a test message";
-    header.WriteField(HeaderAccessor.headerKey_Message, testMessage);
-    expect(HeaderAccessor.readMessage(header)).toBe(testMessage);
+    header.WriteField(HeaderAccessor.headerKey_ErrorMessage, testMessage);
+    expect(HeaderAccessor.readErrorMessage(header)).toBe(testMessage);
+  });
+
+  test("readErrorCode should return the correct error code from the header", () => {
+    const errorCode = "404";
+    header.WriteField(HeaderAccessor.headerKey_ErrorCode, errorCode);
+    expect(HeaderAccessor.readErrorCode(header)).toBe(errorCode);
   });
 
   test("readResponseId should return the correct response ID from the header", () => {

@@ -27,14 +27,21 @@ The AdsRpcClient is the primary client for most users. Here's how to instantiate
 ```javascript
 const client = new AdsRpcClient("127.0.0.1.1.1", 851, "Main.server");
 
-// Connect to the server
 await client.connect();
 
-// Make a remote procedure call
 const parameters = {
   /* key-value pairs of the parameters */
 };
-const methodReturnValue = await client.rpcCall("MethodName", parameters);
+
+try {
+  const methodReturnValue = await client.rpcCall("MethodName", parameters);
+  console.log("RPC call succeeded:", methodReturnValue);
+} catch (error) {
+  console.error("RPC call failed:");
+  console.error("Request ID", error.requestId);
+  console.error("Error code", error.code);
+  console.error("Error message:", error.message);
+}
 ```
 
 ## Constructor Parameters
@@ -70,7 +77,16 @@ const client = new TcHmiRpcClient("%s%PLC1.MAIN.server.HandleRequest%/s%");
 const parameters = {
   /* key-value pairs of the parameters */
 };
-const methodReturnValue = await client.rpcCall("MethodName", parameters);
+
+try {
+  const methodReturnValue = await client.rpcCall("MethodName", parameters);
+  console.log("RPC call succeeded:", methodReturnValue);
+} catch (error) {
+  console.error("RPC call failed:");
+  console.error("Request ID", error.requestId);
+  console.error("Error code", error.code);
+  console.error("Error message:", error.message);
+}
 ```
 
 This creates TcHmiRpcClient.bundle.js in the dist folder, which can be included in your TcHmi project.

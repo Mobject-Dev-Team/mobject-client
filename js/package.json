@@ -1,6 +1,6 @@
 {
   "name": "mobject-client",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Javascript client for the mobject-server.",
   "main": "./src/index.js",
   "author": "benhar-dev",

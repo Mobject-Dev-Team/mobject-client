@@ -165,7 +165,11 @@ class AsyncClient {
         return false;
       case this.#STATUS.ERROR:
       default:
-        this.#handleFailure(id, HeaderAccessor.readMessage(response.header));
+        this.#handleFailure(
+          id,
+          HeaderAccessor.readErrorMessage(response.header),
+          response.header
+        );
         return false;
     }
   }
@@ -301,11 +305,14 @@ class AsyncClient {
     }
   }
 
-  #handleFailure(id, message) {
+  #handleFailure(id, message, header = null) {
     const request = this.#activeRequests.get(id);
     if (request) {
-      const modifiedError = new Error(`Call ${id}: ${message}`);
-      request.reject(modifiedError);
+      const error = new Error(message);
+      error.requestId = id;
+      error.code = header ? HeaderAccessor.readErrorCode(header) : null;
+
+      request.reject(error);
     }
   }
 }

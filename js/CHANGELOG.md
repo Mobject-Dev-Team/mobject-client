@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.2.0 - 14-05-2025
+
+- Changed, Server responses now include an ErrorCode header for structured error handling.
+- Changed, Header "Message" is now "Error-Message".
+- Added, Client error handling updated to extract and use ErrorCode and requestId as separate fields on the error object for clearer diagnostics and retry logic.
+
+Example.
+
+`` console.error(`Error [${err.code}] in call ${err.requestId}: ${err.message}`);``
+
 ## v2.1.0 - 30-01-2025
 
 - Optimized chunking

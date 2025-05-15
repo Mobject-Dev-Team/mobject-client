@@ -5,7 +5,7 @@ class HeaderAccessor {
   static headerKey_ChunkTotal = "Chunk-Total";
   static headerKey_ContentType = "Content-Type";
   static headerKey_HasMoreChunks = "Has-More-Chunks";
-  static headerKey_Message = "Message";
+  static headerKey_ErrorMessage = "Error-Message";
   static headerKey_MethodName = "Method-Name";
   static headerKey_RequestId = "Request-Id";
   static headerKey_ResponseId = "Response-Id";
@@ -13,6 +13,7 @@ class HeaderAccessor {
   static headerKey_SessionId = "Session-Id";
   static headerKey_Status = "Status";
   static headerKey_Type = "Type";
+  static headerKey_ErrorCode = "Error-Code";
 
   static acceptTypeIsJson(header) {
     if (
@@ -31,8 +32,8 @@ class HeaderAccessor {
     return header.GetField(HeaderAccessor.headerKey_HasMoreChunks);
   }
 
-  static readMessage(header) {
-    return header.GetField(HeaderAccessor.headerKey_Message);
+  static readErrorMessage(header) {
+    return header.GetField(HeaderAccessor.headerKey_ErrorMessage);
   }
 
   static readResponseId(header) {
@@ -49,6 +50,10 @@ class HeaderAccessor {
 
   static readStatus(header) {
     return header.GetField(HeaderAccessor.headerKey_Status);
+  }
+
+  static readErrorCode(header) {
+    return header.GetField(HeaderAccessor.headerKey_ErrorCode);
   }
 
   static updateAcceptedFormat(header, format) {
@@ -105,6 +110,10 @@ class HeaderAccessor {
 
   static updateType(header, type) {
     header.WriteField(HeaderAccessor.headerKey_Type, type);
+  }
+
+  static updateErrorCode(header, errorCode) {
+    header.WriteField(HeaderAccessor.headerKey_ErrorCode, errorCode);
   }
 }
 

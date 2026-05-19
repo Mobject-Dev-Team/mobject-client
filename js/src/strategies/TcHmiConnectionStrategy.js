@@ -41,7 +41,7 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
       this.#log(symbol, args);
       symbol.write(args, (data) => {
         try {
-          this.#validateData(data, reject);
+          this.#validateData(data);
           const readValue = this.#getReadValueFromCommand(
             data.response.commands
           );
@@ -53,21 +53,19 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
     });
   }
 
-  #validateData(data, reject) {
+  #validateData(data) {
     const { error, response } = data;
     if (error !== TcHmi.Errors.NONE) {
-      return reject(new Error(data.details.errors[0].message));
+      throw new Error(data.details.errors[0].message);
     }
     if (!response || response.error !== undefined) {
-      return reject(
-        new Error(response ? response.error.message : "Response is undefined")
+      throw new Error(
+        response ? response.error.message : "Response is undefined"
       );
     }
     if (!response.commands || !response.commands.length) {
-      return reject(
-        new Error(
-          response.commands ? "Command is undefined" : "Commands are undefined"
-        )
+      throw new Error(
+        response.commands ? "Command is undefined" : "Commands are undefined"
       );
     }
   }

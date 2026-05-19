@@ -29,8 +29,9 @@ describe("Header class", () => {
     expect(header.toString()).toBe('{"testKey":"testValue"}');
   });
 
-  test("toJSON should return a JSON string representation of the header", () => {
+  test("toJSON should return the underlying object so JSON.stringify serialises it correctly", () => {
     const header = new Header('{"jsonKey": "jsonValue"}');
-    expect(header.toJSON()).toBe('{"jsonKey":"jsonValue"}');
+    expect(header.toJSON()).toEqual({ jsonKey: "jsonValue" });
+    expect(JSON.stringify(header)).toBe('{"jsonKey":"jsonValue"}');
   });
 });

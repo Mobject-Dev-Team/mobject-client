@@ -5,6 +5,7 @@ const JsonPayloadMarshaller = require("./JsonPayloadMarshaller");
 
 class RpcClientBase {
   #client = null;
+  #marshaller = new JsonPayloadMarshaller();
 
   constructor(serverConnectionStrategy, config = {}) {
     this.#client = new AsyncClient(serverConnectionStrategy, config);
@@ -12,13 +13,11 @@ class RpcClientBase {
 
   async rpcCall(methodName, params = "", timeout) {
     const header = new Header();
-    const payload = params;
-    const marshaller = new JsonPayloadMarshaller();
 
     HeaderAccessor.updateType(header, "RPC 1.0");
     HeaderAccessor.updateMethodName(header, methodName);
 
-    return this.#client.request(header, payload, marshaller, timeout);
+    return this.#client.request(header, params, this.#marshaller, timeout);
   }
 }
 

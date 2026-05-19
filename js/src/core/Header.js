@@ -22,7 +22,7 @@ class Header {
   }
 
   toJSON() {
-    return JSON.stringify(this.#header);
+    return this.#header;
   }
 }
 

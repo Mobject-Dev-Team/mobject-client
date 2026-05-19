@@ -16,12 +16,10 @@ class HeaderAccessor {
   static headerKey_ErrorCode = "Error-Code";
 
   static acceptTypeIsJson(header) {
-    if (
-      header.GetField(HeaderAccessor.headerKey_Accept) ==
+    return (
+      header.GetField(HeaderAccessor.headerKey_Accept) ===
       HeaderAccessor.contentType_Json
-    ) {
-      return true;
-    }
+    );
   }
 
   static readAcceptType(header) {

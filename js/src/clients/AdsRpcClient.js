@@ -4,6 +4,7 @@ const { Client } = require("ads-client");
 
 class AdsRpcClient extends RpcClientBase {
   #client;
+  #strategy;
   isConnected = false;
 
   constructor(
@@ -36,6 +37,7 @@ class AdsRpcClient extends RpcClientBase {
     super(serverConnectionStrategy, config);
 
     this.#client = client;
+    this.#strategy = serverConnectionStrategy;
   }
 
   async connect() {
@@ -48,6 +50,13 @@ class AdsRpcClient extends RpcClientBase {
     } catch (error) {
       console.error("Failed to connect:", error);
       throw error;
+    }
+
+    try {
+      const payloadSize = await this.#strategy.getConfiguredPayloadSize();
+      super.configure(payloadSize);
+    } catch {
+      // server does not support GetConfiguredPayloadSize, keep default
     }
   }
 

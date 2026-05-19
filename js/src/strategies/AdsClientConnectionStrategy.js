@@ -20,6 +20,15 @@ class AdsClientConnectionStrategy extends ServerConnectionStrategy {
     );
     return result.returnValue;
   }
+
+  async getConfiguredPayloadSize() {
+    const result = await this.#client.invokeRpcMethod(
+      this.#symbolName,
+      "GetConfiguredPayloadSize",
+      {}
+    );
+    return result.returnValue;
+  }
 }
 
 module.exports = AdsClientConnectionStrategy;

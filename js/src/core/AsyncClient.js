@@ -7,7 +7,6 @@ class AsyncClient {
   #serverConnectionStrategy;
   #activeRequests = new Map();
   #timeout;
-  #stackSize;
   #chunkSize;
   #debug = false;
   #sessionId = null;
@@ -30,9 +29,12 @@ class AsyncClient {
   constructor(serverConnectionStrategy, config = {}) {
     this.#serverConnectionStrategy = serverConnectionStrategy;
 
-    this.#stackSize = config.stackSize || 64000;
-    this.#chunkSize = config.chunkSize || this.#stackSize / 8;
+    this.#chunkSize = config.chunkSize || 8000;
     this.#timeout = config.timeout || 5000;
+  }
+
+  configure(chunkSize) {
+    this.#chunkSize = chunkSize;
   }
 
   async request(

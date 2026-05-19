@@ -3,6 +3,22 @@
   "version": "2.2.0",
   "description": "Javascript client for the mobject-server.",
   "main": "./src/index.js",
+  "files": [
+    "src",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "mobject",
+    "twincat",
+    "beckhoff",
+    "ads",
+    "rpc",
+    "automation"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
   "author": "benhar-dev",
   "scripts": {
     "test": "jest",

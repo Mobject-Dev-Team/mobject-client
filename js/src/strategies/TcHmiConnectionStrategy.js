@@ -1,11 +1,13 @@
 const ServerConnectionStrategy = require("./ServerConnectionStrategy");
 
 class TcHmiConnectionStrategy extends ServerConnectionStrategy {
+  #handleClientRequestSymbolName;
   #apiHandleClientRequestSymbol;
   #debug = false;
 
   constructor(handleClientRequestSymbolName) {
     super();
+    this.#handleClientRequestSymbolName = handleClientRequestSymbolName;
     this.#apiHandleClientRequestSymbol = new TcHmi.Symbol(
       handleClientRequestSymbolName
     );
@@ -14,6 +16,15 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
   #log(...args) {
     if (!this.#debug) return;
     console.log(...args);
+  }
+
+  async getConfiguredPayloadSize() {
+    const configSymbolName = this.#handleClientRequestSymbolName.replace(
+      "HandleRequest",
+      "GetConfiguredPayloadSize"
+    );
+    const configSymbol = new TcHmi.Symbol(configSymbolName);
+    return await this.#writeToSymbol(configSymbol, {});
   }
 
   async request(SerializedHeader, SerializedPayload) {
@@ -56,7 +67,8 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
   #validateData(data) {
     const { error, response } = data;
     if (error !== TcHmi.Errors.NONE) {
-      throw new Error(data.details.errors[0].message);
+      const message = data.details?.errors?.[0]?.message ?? "Unknown TcHmi error";
+      throw new Error(message);
     }
     if (!response || response.error !== undefined) {
       throw new Error(

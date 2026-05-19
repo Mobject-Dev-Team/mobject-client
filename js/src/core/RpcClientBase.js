@@ -11,6 +11,10 @@ class RpcClientBase {
     this.#client = new AsyncClient(serverConnectionStrategy, config);
   }
 
+  configure(chunkSize) {
+    this.#client.configure(chunkSize);
+  }
+
   async rpcCall(methodName, params = "", timeout) {
     const header = new Header();
 

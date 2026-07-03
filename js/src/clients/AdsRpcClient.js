@@ -14,10 +14,14 @@ class AdsRpcClient extends RpcClientBase {
     methodName = "HandleRequest",
     config = {}
   ) {
+    // clientSettings are passed through to the underlying ads-client Client,
+    // e.g. routerAddress/localAmsNetId for router-less (Linux) connections.
+    const { clientSettings = {}, ...baseConfig } = config;
     const client = new Client({
       targetAmsNetId: amsNetId,
       targetAdsPort: adsPort,
       autoReconnect: false,
+      ...clientSettings,
     });
 
     client.on("disconnect", () => {
@@ -34,7 +38,7 @@ class AdsRpcClient extends RpcClientBase {
       methodName
     );
 
-    super(serverConnectionStrategy, config);
+    super(serverConnectionStrategy, baseConfig);
 
     this.#client = client;
     this.#strategy = serverConnectionStrategy;

@@ -48,9 +48,33 @@ try {
 
 - amsNetId: The AMS Net ID of the target machine, defaults to "127.0.0.1.1.1".
 - adsPort: The ADS port, defaults to 851.
-  symbolName: The symbol name for the API endpoint, defaults to "MAIN.server".
+- symbolName: The symbol name for the API endpoint, defaults to "MAIN.server".
 - methodName: The method name to call, defaults to "HandleRequest".
 - config: Additional configuration options.
+  - clientSettings: Optional settings object merged into the underlying [ads-client](https://github.com/jisotalo/ads-client) `Client` settings. Use this to access any ads-client option not covered by the constructor parameters, such as the router-less connection settings shown below.
+
+## Connecting without a local ADS router (e.g. Linux)
+
+By default the client connects through the local TwinCAT AMS router on `127.0.0.1:48898`. On machines without a TwinCAT installation (typically Linux servers) there is no local router, so the connection fails with `ECONNREFUSED 127.0.0.1:48898`. In that case, connect straight to the target's router using `clientSettings`:
+
+```javascript
+const client = new AdsRpcClient(
+  "192.168.10.20.1.1", // target AMS Net ID
+  851,
+  "Main.server",
+  "HandleRequest",
+  {
+    clientSettings: {
+      routerAddress: "192.168.10.20", // IP of the target machine
+      routerTcpPort: 48898,
+      localAmsNetId: "192.168.10.50.1.1", // this machine's IP as an AMS Net ID
+      localAdsPort: 32750, // any free local ADS port
+    },
+  }
+);
+```
+
+The target machine must have a static AMS route back to this machine, or it will silently drop the AMS frames (the connection then fails with a "Device system manager state read failed" timeout). Add the route on the target with TwinCAT XAE (SYSTEM → Routes → Add) or in `StaticRoutes.xml`, using the same `localAmsNetId` and this machine's IP address.
 
 ## Parameters Object
 

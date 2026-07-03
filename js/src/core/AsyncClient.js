@@ -7,7 +7,6 @@ class AsyncClient {
   #serverConnectionStrategy;
   #activeRequests = new Map();
   #timeout;
-  #stackSize;
   #chunkSize;
   #debug = false;
   #sessionId = null;
@@ -30,9 +29,12 @@ class AsyncClient {
   constructor(serverConnectionStrategy, config = {}) {
     this.#serverConnectionStrategy = serverConnectionStrategy;
 
-    this.#stackSize = config.stackSize || 64000;
-    this.#chunkSize = config.chunkSize || this.#stackSize / 8;
+    this.#chunkSize = config.chunkSize || 8000;
     this.#timeout = config.timeout || 5000;
+  }
+
+  configure(chunkSize) {
+    this.#chunkSize = chunkSize;
   }
 
   async request(
@@ -93,9 +95,7 @@ class AsyncClient {
   }
 
   #deleteActiveRequestEntry(id) {
-    if (this.#activeRequests.has(id)) {
-      this.#activeRequests.delete(id);
-    }
+    this.#activeRequests.delete(id);
   }
 
   async #enqueueRequest(id, header, serializedPayload) {
@@ -130,6 +130,9 @@ class AsyncClient {
   }
 
   #chunkSerializedPayload(serializedPayload) {
+    if (serializedPayload.length === 0) {
+      return [""];
+    }
     const chunks = [];
     for (let i = 0; i < serializedPayload.length; i += this.#chunkSize) {
       chunks.push(serializedPayload.slice(i, i + this.#chunkSize));
@@ -155,13 +158,13 @@ class AsyncClient {
       case this.#STATUS.ACCEPTED:
         return false;
       case this.#STATUS.PENDING:
-        this.#handlePendingResponse(id, header, response);
+        await this.#handlePendingResponse(id, header, response);
         return false;
       case this.#STATUS.BUSY:
         await this.#handleServerIsBusy(response);
         return true;
       case this.#STATUS.SUCCESS:
-        this.#handleSuccessfulRequest(id, header, response);
+        await this.#handleSuccessfulRequest(id, header, response);
         return false;
       case this.#STATUS.ERROR:
       default:
@@ -175,7 +178,7 @@ class AsyncClient {
   }
 
   async #handleServerIsBusy(response) {
-    retryDelay = HeaderAccessor.readRetryDelay(response.header);
+    const retryDelay = HeaderAccessor.readRetryDelay(response.header);
     await this.#delayExecution(retryDelay);
   }
 

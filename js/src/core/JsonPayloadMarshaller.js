@@ -17,7 +17,7 @@ class JsonPayloadMarshaller {
     try {
       return JSON.stringify(payload);
     } catch (error) {
-      console.log("Failed to stringify the payload:");
+      console.error("Failed to stringify the payload:", error);
       return "";
     }
   }

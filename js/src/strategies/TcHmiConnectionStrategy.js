@@ -1,11 +1,13 @@
 const ServerConnectionStrategy = require("./ServerConnectionStrategy");
 
 class TcHmiConnectionStrategy extends ServerConnectionStrategy {
+  #handleClientRequestSymbolName;
   #apiHandleClientRequestSymbol;
   #debug = false;
 
   constructor(handleClientRequestSymbolName) {
     super();
+    this.#handleClientRequestSymbolName = handleClientRequestSymbolName;
     this.#apiHandleClientRequestSymbol = new TcHmi.Symbol(
       handleClientRequestSymbolName
     );
@@ -14,6 +16,15 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
   #log(...args) {
     if (!this.#debug) return;
     console.log(...args);
+  }
+
+  async getConfiguredPayloadSize() {
+    const configSymbolName = this.#handleClientRequestSymbolName.replace(
+      "HandleRequest",
+      "GetConfiguredPayloadSize"
+    );
+    const configSymbol = new TcHmi.Symbol(configSymbolName);
+    return await this.#writeToSymbol(configSymbol, {});
   }
 
   async request(SerializedHeader, SerializedPayload) {
@@ -41,7 +52,7 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
       this.#log(symbol, args);
       symbol.write(args, (data) => {
         try {
-          this.#validateData(data, reject);
+          this.#validateData(data);
           const readValue = this.#getReadValueFromCommand(
             data.response.commands
           );
@@ -53,21 +64,20 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
     });
   }
 
-  #validateData(data, reject) {
+  #validateData(data) {
     const { error, response } = data;
     if (error !== TcHmi.Errors.NONE) {
-      return reject(new Error(data.details.errors[0].message));
+      const message = data.details?.errors?.[0]?.message ?? "Unknown TcHmi error";
+      throw new Error(message);
     }
     if (!response || response.error !== undefined) {
-      return reject(
-        new Error(response ? response.error.message : "Response is undefined")
+      throw new Error(
+        response ? response.error.message : "Response is undefined"
       );
     }
     if (!response.commands || !response.commands.length) {
-      return reject(
-        new Error(
-          response.commands ? "Command is undefined" : "Commands are undefined"
-        )
+      throw new Error(
+        response.commands ? "Command is undefined" : "Commands are undefined"
       );
     }
   }

@@ -9,7 +9,7 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
     super();
     this.#handleClientRequestSymbolName = handleClientRequestSymbolName;
     this.#apiHandleClientRequestSymbol = new TcHmi.Symbol(
-      handleClientRequestSymbolName
+      handleClientRequestSymbolName,
     );
   }
 
@@ -21,7 +21,7 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
   async getConfiguredPayloadSize() {
     const configSymbolName = this.#handleClientRequestSymbolName.replace(
       "HandleRequest",
-      "GetConfiguredPayloadSize"
+      "GetConfiguredPayloadSize",
     );
     const configSymbol = new TcHmi.Symbol(configSymbolName);
     return await this.#writeToSymbol(configSymbol, {});
@@ -40,7 +40,7 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
     try {
       return await this.#writeToSymbol(
         this.#apiHandleClientRequestSymbol,
-        requestPayload
+        requestPayload,
       );
     } catch (error) {
       throw new Error(`Error in sending request: ${error.message}`);
@@ -54,7 +54,7 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
         try {
           this.#validateData(data);
           const readValue = this.#getReadValueFromCommand(
-            data.response.commands
+            data.response.commands,
           );
           resolve(readValue);
         } catch (error) {
@@ -67,17 +67,18 @@ class TcHmiConnectionStrategy extends ServerConnectionStrategy {
   #validateData(data) {
     const { error, response } = data;
     if (error !== TcHmi.Errors.NONE) {
-      const message = data.details?.errors?.[0]?.message ?? "Unknown TcHmi error";
+      const message =
+        data.details?.errors?.[0]?.message ?? "Unknown TcHmi error";
       throw new Error(message);
     }
     if (!response || response.error !== undefined) {
       throw new Error(
-        response ? response.error.message : "Response is undefined"
+        response ? response.error.message : "Response is undefined",
       );
     }
     if (!response.commands || !response.commands.length) {
       throw new Error(
-        response.commands ? "Command is undefined" : "Commands are undefined"
+        response.commands ? "Command is undefined" : "Commands are undefined",
       );
     }
   }

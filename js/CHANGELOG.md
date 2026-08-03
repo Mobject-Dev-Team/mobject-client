@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.4.0 - 03-08-2026
+
+- Changed, the per-call `timeout` is now an inactivity timeout rather than a budget for the whole call. It is the longest the client will wait without hearing anything back about a request. Every reply - `Accepted`, `Pending`, a delivered chunk - proves the server is alive and working, and restarts the clock. A long operation that keeps reporting progress is no longer cancelled for taking too long; only silence fails it. This is strictly more permissive than the previous behaviour, so calls that succeeded before still succeed.
+- Added, `maxDuration` option on the client config. An absolute ceiling on a whole call, as a backstop against a server that stays responsive but never finishes. Off by default, because the intended guard for that case is a deadline on the server, which can tell the difference between slow work and stuck work.
+- Added, timeout rejections now carry a `code` so the two cases can be told apart - `TIMEOUT_INACTIVITY` and `TIMEOUT_MAX_DURATION` - alongside the existing `requestId`.
+
+Example.
+
+``new AdsRpcClient("192.168.10.20.1.1", 851, "Main.server", "HandleRequest", { timeout: 10000, maxDuration: 600000 });``
+
 ## v2.3.0 - 03-07-2026
 
 - Added, `clientSettings` option on the AdsRpcClient config. This is merged into the underlying ads-client `Client` settings, enabling router-less connections from machines without a local TwinCAT AMS router (e.g. Linux) via `routerAddress`, `localAmsNetId` and `localAdsPort`. See the README section "Connecting without a local ADS router" for details.

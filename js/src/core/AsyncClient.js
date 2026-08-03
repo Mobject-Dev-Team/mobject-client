@@ -56,7 +56,8 @@ class AsyncClient {
     header = new Header(),
     payload,
     marshaller,
-    timeout = this.#timeout
+    timeout = this.#timeout,
+    options = {}
   ) {
     const serializedPayload = marshaller.marshall(header, payload);
 
@@ -66,9 +67,65 @@ class AsyncClient {
     this.#enqueueRequest(requestId, header, serializedPayload);
     const serializedResponse = await this.#createRequestPromise(
       requestId,
-      timeout
+      timeout,
+      options.signal
     );
     return marshaller.unmarshall(serializedResponse);
+  }
+
+  // Abandon every request still in flight. The dispatch and poll loops check
+  // whether their request is still active before each step, so dropping the
+  // entries is what stops them.
+  //
+  // One ADS call already on the wire will still run to completion - there is no
+  // way to recall it - but its result is discarded and nothing further is sent
+  // for that request.
+  abortAll(reason = "The client aborted all in-flight requests") {
+    const ids = Array.from(this.#activeRequests.keys());
+
+    for (const id of ids) {
+      this.#abortRequest(id, reason);
+    }
+
+    return ids.length;
+  }
+
+  abort(requestId, reason = "The request was aborted") {
+    return this.#abortRequest(requestId, reason);
+  }
+
+  get activeRequestCount() {
+    return this.#activeRequests.size;
+  }
+
+  #abortRequest(id, reason) {
+    const rpcCall = this.#activeRequests.get(id);
+
+    if (!rpcCall) {
+      return false;
+    }
+
+    // reject() is only installed once the caller's promise exists. If a request
+    // is somehow aborted before that, drop the entry directly so its loops
+    // still stop.
+    if (typeof rpcCall.reject !== "function") {
+      this.#deleteActiveRequestEntry(id);
+      return true;
+    }
+
+    rpcCall.reject(this.#createAbortError(id, reason));
+    return true;
+  }
+
+  #createAbortError(id, reason) {
+    const error = new Error(
+      typeof reason === "string" && reason !== ""
+        ? reason
+        : `Call ${id} was aborted`
+    );
+    error.code = "ABORTED";
+    error.requestId = id;
+    return error;
   }
 
   #createActiveRequestEntry() {
@@ -77,7 +134,7 @@ class AsyncClient {
     return id;
   }
 
-  #createRequestPromise(id, inactivityTimeout) {
+  #createRequestPromise(id, inactivityTimeout, signal) {
     return new Promise((resolve, reject) => {
       const rpcCall = this.#activeRequests.get(id);
 
@@ -88,6 +145,7 @@ class AsyncClient {
 
       const settleWith = (finish) => (value) => {
         this.#clearRequestTimers(rpcCall);
+        this.#detachSignal(rpcCall);
         this.#deleteActiveRequestEntry(id);
         finish(value);
       };
@@ -116,7 +174,28 @@ class AsyncClient {
           rpcCall.reject(error);
         }, this.#maxDuration);
       }
+
+      if (signal) {
+        if (signal.aborted) {
+          rpcCall.reject(this.#createAbortError(id, signal.reason));
+          return;
+        }
+
+        const onAbort = () => this.#abortRequest(id, signal.reason);
+        signal.addEventListener("abort", onAbort, { once: true });
+        rpcCall.detachSignal = () =>
+          signal.removeEventListener("abort", onAbort);
+      }
     });
+  }
+
+  #detachSignal(rpcCall) {
+    if (typeof rpcCall.detachSignal !== "function") {
+      return;
+    }
+
+    rpcCall.detachSignal();
+    rpcCall.detachSignal = null;
   }
 
   // Called whenever the server says anything at all about a request. Proof of

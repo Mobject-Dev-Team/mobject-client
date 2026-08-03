@@ -69,20 +69,25 @@ class AdsRpcClient extends RpcClientBase {
   // happen: config.timeout was accepted, stored, and then never consulted
   // because every call supplied its own value. Leaving it undefined lets the
   // configured timeout apply, and still allows a per-call override.
-  async rpcCall(methodName, params = {}, timeout) {
+  async rpcCall(methodName, params = {}, timeout, options) {
     if (!this.isConnected) {
       throw new Error(
         "No active connection. Please connect before calling RPC methods."
       );
     }
 
-    return await super.rpcCall(methodName, params, timeout);
+    return await super.rpcCall(methodName, params, timeout, options);
   }
 
   async disconnect() {
     if (!this.isConnected) {
       return;
     }
+
+    // Fail anything still in flight before the transport goes away. Without
+    // this those requests would keep polling against a closed connection until
+    // their own timeouts expired.
+    this.abortAll("The client was disconnected");
 
     try {
       await this.#client.disconnect();

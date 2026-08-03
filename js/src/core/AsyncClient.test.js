@@ -125,6 +125,124 @@ describe("AsyncClient inactivity timeout", () => {
   });
 });
 
+describe("AsyncClient cancellation", () => {
+  const marshaller = new JsonPayloadMarshaller();
+
+  // A server that stays alive but never finishes: exactly the case a caller
+  // needs to be able to walk away from.
+  const endlesslyPending = () => {
+    const strategy = new ScriptedStrategy([]);
+    strategy.request = async function () {
+      this.requests.push({});
+      await new Promise((r) => setTimeout(r, 10));
+      return pending();
+    };
+    return strategy;
+  };
+
+  test("abortAll rejects an in-flight request with an ABORTED error", async () => {
+    const client = new AsyncClient(endlesslyPending(), { timeout: 5000 });
+
+    const inFlight = client.request(new Header(), {}, marshaller);
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(client.activeRequestCount).toBe(1);
+    expect(client.abortAll()).toBe(1);
+
+    await expect(inFlight).rejects.toMatchObject({ code: "ABORTED" });
+    expect(client.activeRequestCount).toBe(0);
+  });
+
+  test("abortAll reports how many requests it abandoned", async () => {
+    const client = new AsyncClient(endlesslyPending(), { timeout: 5000 });
+
+    const calls = [
+      client.request(new Header(), {}, marshaller),
+      client.request(new Header(), {}, marshaller),
+      client.request(new Header(), {}, marshaller),
+    ];
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(client.abortAll("shutting down")).toBe(3);
+
+    await Promise.all(
+      calls.map((c) => expect(c).rejects.toThrow("shutting down"))
+    );
+    expect(client.activeRequestCount).toBe(0);
+  });
+
+  test("aborting stops the client sending anything further for that request", async () => {
+    const strategy = endlesslyPending();
+    const client = new AsyncClient(strategy, { timeout: 5000 });
+
+    const inFlight = client.request(new Header(), {}, marshaller);
+    await new Promise((r) => setTimeout(r, 40));
+    client.abortAll();
+    await expect(inFlight).rejects.toMatchObject({ code: "ABORTED" });
+
+    // One call may already have been on the wire when the abort landed and will
+    // still come back, but nothing new should be sent after that.
+    const sentAtAbort = strategy.requests.length;
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(strategy.requests.length).toBeLessThanOrEqual(sentAtAbort + 1);
+  });
+
+  test("an AbortSignal cancels just its own request", async () => {
+    const client = new AsyncClient(endlesslyPending(), { timeout: 5000 });
+    const controller = new AbortController();
+
+    const cancelled = client.request(new Header(), {}, marshaller, undefined, {
+      signal: controller.signal,
+    });
+    const untouched = client.request(new Header(), {}, marshaller);
+    await new Promise((r) => setTimeout(r, 30));
+
+    controller.abort("caller gave up");
+
+    await expect(cancelled).rejects.toMatchObject({ code: "ABORTED" });
+    expect(client.activeRequestCount).toBe(1);
+
+    client.abortAll();
+    await expect(untouched).rejects.toMatchObject({ code: "ABORTED" });
+  });
+
+  test("a signal already aborted fails the request immediately", async () => {
+    const client = new AsyncClient(endlesslyPending(), { timeout: 5000 });
+    const controller = new AbortController();
+    controller.abort("too late");
+
+    await expect(
+      client.request(new Header(), {}, marshaller, undefined, {
+        signal: controller.signal,
+      })
+    ).rejects.toMatchObject({ code: "ABORTED" });
+
+    expect(client.activeRequestCount).toBe(0);
+  });
+
+  test("a completed request detaches from its signal", async () => {
+    const strategy = new ScriptedStrategy([{ response: success('"ok"') }]);
+    const client = new AsyncClient(strategy, { timeout: 1000 });
+    const controller = new AbortController();
+
+    await expect(
+      client.request(new Header(), {}, marshaller, undefined, {
+        signal: controller.signal,
+      })
+    ).resolves.toBe("ok");
+
+    // Aborting afterwards must be inert rather than reaching a dead entry.
+    expect(() => controller.abort()).not.toThrow();
+    expect(client.activeRequestCount).toBe(0);
+  });
+
+  test("abortAll on an idle client is a no-op", () => {
+    const client = new AsyncClient(new ScriptedStrategy([]), {});
+    expect(client.abortAll()).toBe(0);
+  });
+});
+
 describe("AsyncClient maxDuration backstop", () => {
   const marshaller = new JsonPayloadMarshaller();
 

@@ -13,9 +13,9 @@ class TcHmiRpcClient extends RpcClientBase {
     this.#strategy = serverConnectionStrategy;
   }
 
-  async rpcCall(methodName, params = {}, timeout) {
+  async rpcCall(methodName, params = {}, timeout, options) {
     await this.#ensureConfigured();
-    return super.rpcCall(methodName, params, timeout);
+    return super.rpcCall(methodName, params, timeout, options);
   }
 
   async #ensureConfigured() {

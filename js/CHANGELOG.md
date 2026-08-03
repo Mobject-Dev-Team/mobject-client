@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.5.0 - 03-08-2026
+
+- Added, `abortAll(reason)` on the clients. Abandons every request still in flight, rejecting each with an `ABORTED` error. Returns how many were abandoned. Use it to tear a client down, or to make one safe to reuse after a caller has stopped waiting on something - without it an abandoned request keeps polling and its work queues ahead of whoever gets the client next.
+- Added, `abort(requestId, reason)` to abandon a single request, and `activeRequestCount` to see how many are outstanding. Request ids appear on rejected errors as `requestId`.
+- Added, an optional call options argument carrying an `AbortSignal`, so a single call can be cancelled without touching the others. An already-aborted signal fails the call immediately, and a call that finishes normally detaches from its signal.
+- Changed, `disconnect()` on the AdsRpcClient now abandons in-flight requests before closing the transport. They would otherwise carry on polling against a closed connection until their own timeouts expired.
+
+One ADS call already on the wire when an abort lands cannot be recalled and will still complete, but its result is discarded and nothing further is sent for that request.
+
+Example.
+
+``const controller = new AbortController(); const call = client.rpcCall("GetBlueprints", { offset: 0, limit: 300 }, undefined, { signal: controller.signal }); controller.abort("caller gave up");``
+
 ## v2.4.1 - 03-08-2026
 
 - Fixed, `timeout` given to the `AdsRpcClient` constructor was accepted and then never used. `rpcCall` supplied its own default of 60000 on every call, which always won, so the configured value had no effect. The per-call argument is now optional, so the configured timeout applies and a call can still override it.

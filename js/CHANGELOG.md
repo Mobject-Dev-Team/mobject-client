@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.4.1 - 03-08-2026
+
+- Fixed, `timeout` given to the `AdsRpcClient` constructor was accepted and then never used. `rpcCall` supplied its own default of 60000 on every call, which always won, so the configured value had no effect. The per-call argument is now optional, so the configured timeout applies and a call can still override it.
+
+!> Callers that set no `timeout` anywhere were getting the hardcoded 60000. They now get the documented default of 5000. Since v2.4.0 this is an inactivity timeout rather than a budget for the whole call, so 5000 means five seconds of silence, not a five second call limit. Set `timeout` explicitly if a single request to your server can legitimately go quiet for longer than that - a large `PAYLOAD_STRING_SIZE` makes this more likely, because one chunk can take the PLC a while to produce.
+
 ## v2.4.0 - 03-08-2026
 
 - Changed, the per-call `timeout` is now an inactivity timeout rather than a budget for the whole call. It is the longest the client will wait without hearing anything back about a request. Every reply - `Accepted`, `Pending`, a delivered chunk - proves the server is alive and working, and restarts the clock. A long operation that keeps reporting progress is no longer cancelled for taking too long; only silence fails it. This is strictly more permissive than the previous behaviour, so calls that succeeded before still succeed.

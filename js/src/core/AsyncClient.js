@@ -7,6 +7,7 @@ class AsyncClient {
   #serverConnectionStrategy;
   #activeRequests = new Map();
   #timeout;
+  #maxDuration;
   #chunkSize;
   #debug = false;
   #sessionId = null;
@@ -30,7 +31,21 @@ class AsyncClient {
     this.#serverConnectionStrategy = serverConnectionStrategy;
 
     this.#chunkSize = config.chunkSize || 8000;
+
+    // Inactivity timeout: the longest the client will wait without hearing
+    // anything back from the server about this request. It is NOT a budget for
+    // the whole call. Every reply - Accepted, Pending, a delivered chunk -
+    // proves the server is alive and working, and starts the clock again. A
+    // long operation that keeps reporting progress is allowed to keep running;
+    // only silence fails it.
     this.#timeout = config.timeout || 5000;
+
+    // Optional absolute ceiling on a whole call, as a backstop against a server
+    // that stays responsive but never finishes. Off by default: the intended
+    // guard for that case is a deadline on the server, which can tell the
+    // difference between slow work and stuck work. Set a value here only if a
+    // hard client-side limit is genuinely wanted.
+    this.#maxDuration = config.maxDuration ?? null;
   }
 
   configure(chunkSize) {
@@ -41,7 +56,8 @@ class AsyncClient {
     header = new Header(),
     payload,
     marshaller,
-    timeout = this.#timeout
+    timeout = this.#timeout,
+    options = {}
   ) {
     const serializedPayload = marshaller.marshall(header, payload);
 
@@ -49,11 +65,67 @@ class AsyncClient {
     HeaderAccessor.updateRequestId(header, requestId);
 
     this.#enqueueRequest(requestId, header, serializedPayload);
-    const serializedResponse = await this.#createPromiseWithTimeout(
+    const serializedResponse = await this.#createRequestPromise(
       requestId,
-      timeout
+      timeout,
+      options.signal
     );
     return marshaller.unmarshall(serializedResponse);
+  }
+
+  // Abandon every request still in flight. The dispatch and poll loops check
+  // whether their request is still active before each step, so dropping the
+  // entries is what stops them.
+  //
+  // One ADS call already on the wire will still run to completion - there is no
+  // way to recall it - but its result is discarded and nothing further is sent
+  // for that request.
+  abortAll(reason = "The client aborted all in-flight requests") {
+    const ids = Array.from(this.#activeRequests.keys());
+
+    for (const id of ids) {
+      this.#abortRequest(id, reason);
+    }
+
+    return ids.length;
+  }
+
+  abort(requestId, reason = "The request was aborted") {
+    return this.#abortRequest(requestId, reason);
+  }
+
+  get activeRequestCount() {
+    return this.#activeRequests.size;
+  }
+
+  #abortRequest(id, reason) {
+    const rpcCall = this.#activeRequests.get(id);
+
+    if (!rpcCall) {
+      return false;
+    }
+
+    // reject() is only installed once the caller's promise exists. If a request
+    // is somehow aborted before that, drop the entry directly so its loops
+    // still stop.
+    if (typeof rpcCall.reject !== "function") {
+      this.#deleteActiveRequestEntry(id);
+      return true;
+    }
+
+    rpcCall.reject(this.#createAbortError(id, reason));
+    return true;
+  }
+
+  #createAbortError(id, reason) {
+    const error = new Error(
+      typeof reason === "string" && reason !== ""
+        ? reason
+        : `Call ${id} was aborted`
+    );
+    error.code = "ABORTED";
+    error.requestId = id;
+    return error;
   }
 
   #createActiveRequestEntry() {
@@ -62,36 +134,92 @@ class AsyncClient {
     return id;
   }
 
-  #createPromiseWithTimeout(id, timeout) {
-    let timeoutId;
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => {
-        reject(new Error(`Call ${id} timed out`));
-        this.#deleteActiveRequestEntry(id);
-      }, timeout);
-    });
-
-    return Promise.race([timeoutPromise, this.#createPromise(id, timeoutId)]);
-  }
-
-  #createPromise(id, timeoutId) {
+  #createRequestPromise(id, inactivityTimeout, signal) {
     return new Promise((resolve, reject) => {
       const rpcCall = this.#activeRequests.get(id);
-      if (rpcCall) {
-        rpcCall.reject = (reason) => {
-          clearTimeout(timeoutId);
-          this.#deleteActiveRequestEntry(id);
-          reject(reason);
-        };
-        rpcCall.resolve = (payload) => {
-          clearTimeout(timeoutId);
-          this.#deleteActiveRequestEntry(id);
-          resolve(payload);
-        };
-      } else {
-        throw new Error(`Call ${id} not found`);
+
+      if (!rpcCall) {
+        reject(new Error(`Call ${id} not found`));
+        return;
+      }
+
+      const settleWith = (finish) => (value) => {
+        this.#clearRequestTimers(rpcCall);
+        this.#detachSignal(rpcCall);
+        this.#deleteActiveRequestEntry(id);
+        finish(value);
+      };
+
+      rpcCall.resolve = settleWith(resolve);
+      rpcCall.reject = settleWith(reject);
+
+      rpcCall.inactivityTimeout = inactivityTimeout;
+      rpcCall.onInactive = () => {
+        const error = new Error(
+          `Call ${id} timed out after ${inactivityTimeout}ms without any response from the server`
+        );
+        error.code = "TIMEOUT_INACTIVITY";
+        error.requestId = id;
+        rpcCall.reject(error);
+      };
+      this.#restartInactivityTimer(id);
+
+      if (this.#maxDuration != null) {
+        rpcCall.maxDurationTimer = setTimeout(() => {
+          const error = new Error(
+            `Call ${id} exceeded the maximum duration of ${this.#maxDuration}ms`
+          );
+          error.code = "TIMEOUT_MAX_DURATION";
+          error.requestId = id;
+          rpcCall.reject(error);
+        }, this.#maxDuration);
+      }
+
+      if (signal) {
+        if (signal.aborted) {
+          rpcCall.reject(this.#createAbortError(id, signal.reason));
+          return;
+        }
+
+        const onAbort = () => this.#abortRequest(id, signal.reason);
+        signal.addEventListener("abort", onAbort, { once: true });
+        rpcCall.detachSignal = () =>
+          signal.removeEventListener("abort", onAbort);
       }
     });
+  }
+
+  #detachSignal(rpcCall) {
+    if (typeof rpcCall.detachSignal !== "function") {
+      return;
+    }
+
+    rpcCall.detachSignal();
+    rpcCall.detachSignal = null;
+  }
+
+  // Called whenever the server says anything at all about a request. Proof of
+  // life, so the inactivity deadline starts again from now.
+  #restartInactivityTimer(id) {
+    const rpcCall = this.#activeRequests.get(id);
+
+    // The entry exists from the moment the request is created, but its timers
+    // are only armed once the caller's promise is built. Nothing can reply that
+    // early in practice, so this is just a guard against the ordering changing.
+    if (!rpcCall || typeof rpcCall.onInactive !== "function") {
+      return;
+    }
+
+    clearTimeout(rpcCall.inactivityTimer);
+    rpcCall.inactivityTimer = setTimeout(
+      rpcCall.onInactive,
+      rpcCall.inactivityTimeout
+    );
+  }
+
+  #clearRequestTimers(rpcCall) {
+    clearTimeout(rpcCall.inactivityTimer);
+    clearTimeout(rpcCall.maxDurationTimer);
   }
 
   #deleteActiveRequestEntry(id) {
@@ -153,6 +281,11 @@ class AsyncClient {
   }
 
   async #handleResponseBasedOnStatus(response, id, header) {
+    // Every reply routed through here - Accepted, Pending, Busy, a delivered
+    // chunk - is evidence the server is alive and still working on this
+    // request, so the inactivity deadline is pushed back.
+    this.#restartInactivityTimer(id);
+
     const status = HeaderAccessor.readStatus(response.header);
     switch (status) {
       case this.#STATUS.ACCEPTED:

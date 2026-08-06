@@ -47,7 +47,23 @@ describe("RpcClientBase", () => {
       expect.any(Object),
       params,
       expect.any(Object),
-      timeout
+      timeout,
+      undefined
+    );
+  });
+
+  test("should pass call options through to AsyncClient request", async () => {
+    const controller = new AbortController();
+    const options = { signal: controller.signal };
+
+    await rpcClientBase.rpcCall("testMethod", "testParams", 1000, options);
+
+    expect(asyncClientMock.prototype.request).toHaveBeenCalledWith(
+      expect.any(Object),
+      "testParams",
+      expect.any(Object),
+      1000,
+      options
     );
   });
 });
